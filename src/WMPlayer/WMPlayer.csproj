@@ -5,10 +5,16 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>WMPlayer</AssemblyName>
+    <AssemblyName>WMPlayerApp</AssemblyName>
     <RootNamespace>WMPlayer</RootNamespace>
     <Platforms>x64</Platforms>
+    <ApplicationIcon>obj\generated\icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <Target Name="GenerateAppIcon" BeforeTargets="BeforeBuild">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\obj\generated" />
+    <Exec Command="python &quot;$(MSBuildProjectDirectory)\..\..\scripts\generate_icon_ico.py&quot; &quot;$(MSBuildProjectDirectory)\obj\generated\icon.ico&quot;" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="LibVLCSharp.WinForms" Version="3.8.5" />

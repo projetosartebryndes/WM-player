@@ -11,10 +11,16 @@ public sealed class MainForm : Form
     private readonly TrackBar _timeline;
     private readonly Label _statusLabel;
     private readonly System.Windows.Forms.Timer _uiTimer;
+    private readonly System.Windows.Forms.Timer _fullScreenControlsTimer;
+    private readonly Control _topBar;
+    private readonly Control _bottomBar;
 
     private string? _currentMediaPath;
     private bool _isDraggingTimeline;
     private bool _isFullScreen;
+    private int _lastVolumeBeforeMute = 80;
+    private Point _lastMousePosition = Point.Empty;
+    private DateTime _lastInteractionAt = DateTime.MinValue;
     private FormBorderStyle _previousBorderStyle;
     private Rectangle _previousBounds;
     private readonly PlaybackStateStore _stateStore = new();
@@ -31,6 +37,7 @@ public sealed class MainForm : Form
 
         _libVlc = new LibVLC("--avcodec-hw=d3d11va", "--file-caching=1000", "--network-caching=1000");
         _player = new MediaPlayer(_libVlc);
+        _player.Volume = _lastVolumeBeforeMute;
 
         _videoView = new VideoView
         {
@@ -38,25 +45,26 @@ public sealed class MainForm : Form
             MediaPlayer = _player,
             BackColor = Color.Black
         };
+        _videoView.DoubleClick += (_, _) => ToggleFullScreen();
 
-        var topBar = BuildTopBar();
-        var bottomBar = BuildBottomBar();
+        _topBar = BuildTopBar();
+        _bottomBar = BuildBottomBar();
 
         Controls.Add(_videoView);
-        Controls.Add(bottomBar);
-        Controls.Add(topBar);
+        Controls.Add(_bottomBar);
+        Controls.Add(_topBar);
 
         _statusLabel = new Label
         {
             AutoSize = true,
             ForeColor = Color.White,
-            BackColor = Color.FromArgb(110, 0, 0, 0),
-            Padding = new Padding(6),
+            BackColor = Color.FromArgb(140, 0, 0, 0),
+            Padding = new Padding(8, 6, 8, 6),
             Location = new Point(10, 50),
             Text = "Nenhum vídeo aberto"
         };
 
-        _timeline = (TrackBar)bottomBar.Controls[0];
+        _timeline = (TrackBar)_bottomBar.Controls[0];
         Controls.Add(_statusLabel);
         _statusLabel.BringToFront();
 
@@ -68,8 +76,25 @@ public sealed class MainForm : Form
         _uiTimer.Tick += (_, _) => UpdateTimeline();
         _uiTimer.Start();
 
+        _fullScreenControlsTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+        _fullScreenControlsTimer.Tick += (_, _) => HideControlsInFullScreen();
+
         FormClosing += (_, _) => PersistCurrentPlaybackPosition();
         KeyDown += HandleKeyboardShortcuts;
+        MouseMove += (_, e) => HandleInteraction(e.Location);
+        _videoView.MouseMove += (_, e) => HandleInteraction(e.Location);
+        _topBar.MouseMove += (_, e) => HandleInteraction(e.Location);
+        _bottomBar.MouseMove += (_, e) => HandleInteraction(e.Location);
+
+        foreach (Control control in _topBar.Controls)
+        {
+            control.MouseMove += (_, e) => HandleInteraction(e.Location);
+        }
+
+        foreach (Control control in _bottomBar.Controls)
+        {
+            control.MouseMove += (_, e) => HandleInteraction(e.Location);
+        }
 
         if (!string.IsNullOrWhiteSpace(launchMediaPath) && File.Exists(launchMediaPath))
         {
@@ -82,20 +107,20 @@ public sealed class MainForm : Form
         var panel = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 42,
-            BackColor = Color.FromArgb(30, 30, 30),
-            Padding = new Padding(6),
+            Height = 50,
+            BackColor = Color.FromArgb(220, 22, 22, 22),
+            Padding = new Padding(8, 10, 8, 8),
             WrapContents = false,
             AutoScroll = true
         };
 
         panel.Controls.Add(MakeButton("Abrir", (_, _) => OpenFileDialog()));
-        panel.Controls.Add(MakeButton("Play/Pause", (_, _) => TogglePlayPause()));
-        panel.Controls.Add(MakeButton("-5s", (_, _) => SeekRelative(-5000)));
-        panel.Controls.Add(MakeButton("+5s", (_, _) => SeekRelative(5000)));
-        panel.Controls.Add(MakeButton("Início", (_, _) => SeekToStart()));
-        panel.Controls.Add(MakeButton("Fim", (_, _) => SeekToEnd()));
-        panel.Controls.Add(MakeButton("Tela cheia", (_, _) => ToggleFullScreen()));
+        panel.Controls.Add(MakeButton("⏯ Play/Pause", (_, _) => TogglePlayPause()));
+        panel.Controls.Add(MakeButton("⏪ -5s", (_, _) => SeekRelative(-5000)));
+        panel.Controls.Add(MakeButton("⏩ +5s", (_, _) => SeekRelative(5000)));
+        panel.Controls.Add(MakeButton("⏮ Início", (_, _) => SeekToStart()));
+        panel.Controls.Add(MakeButton("⏭ Fim", (_, _) => SeekToEnd()));
+        panel.Controls.Add(MakeButton("⛶ Tela cheia", (_, _) => ToggleFullScreen()));
 
         return panel;
     }
@@ -106,7 +131,7 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             Height = 70,
-            BackColor = Color.FromArgb(30, 30, 30),
+            BackColor = Color.FromArgb(220, 22, 22, 22),
             Padding = new Padding(12)
         };
 
@@ -115,7 +140,8 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             TickStyle = TickStyle.None,
             Minimum = 0,
-            Maximum = 1000
+            Maximum = 1000,
+            BackColor = Color.FromArgb(220, 22, 22, 22)
         };
 
         timeline.MouseDown += (_, _) => _isDraggingTimeline = true;
@@ -139,10 +165,11 @@ public sealed class MainForm : Form
             Text = text,
             Width = 110,
             Height = 28,
-            BackColor = Color.FromArgb(52, 52, 52),
+            BackColor = Color.FromArgb(38, 38, 38),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Margin = new Padding(4, 0, 4, 0)
+            Margin = new Padding(4, 0, 4, 0),
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point)
         };
 
         button.FlatAppearance.BorderColor = Color.DimGray;
@@ -234,6 +261,9 @@ public sealed class MainForm : Form
             Bounds = _previousBounds;
             WindowState = FormWindowState.Normal;
             _isFullScreen = false;
+            SetControlsVisibility(true);
+            _fullScreenControlsTimer.Stop();
+            Cursor = Cursors.Default;
             return;
         }
 
@@ -242,6 +272,42 @@ public sealed class MainForm : Form
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         _isFullScreen = true;
+        Cursor = Cursors.Default;
+        ShowControlsTemporarily();
+    }
+
+    private void HandleInteraction(Point location, bool force = false)
+    {
+        if (!_isFullScreen) return;
+        var movedEnough = force || Math.Abs(location.X - _lastMousePosition.X) >= 4 || Math.Abs(location.Y - _lastMousePosition.Y) >= 4;
+        var enoughTime = force || (DateTime.UtcNow - _lastInteractionAt).TotalMilliseconds >= 120;
+        if (!movedEnough || !enoughTime) return;
+
+        _lastMousePosition = location;
+        _lastInteractionAt = DateTime.UtcNow;
+        ShowControlsTemporarily();
+    }
+
+    private void ShowControlsTemporarily()
+    {
+        SetControlsVisibility(true);
+        _fullScreenControlsTimer.Stop();
+        _fullScreenControlsTimer.Start();
+    }
+
+    private void HideControlsInFullScreen()
+    {
+        _fullScreenControlsTimer.Stop();
+        if (!_isFullScreen) return;
+        SetControlsVisibility(false);
+        Cursor = Cursors.None;
+    }
+
+    private void SetControlsVisibility(bool visible)
+    {
+        _topBar.Visible = visible;
+        _bottomBar.Visible = visible;
+        _statusLabel.Visible = !_isFullScreen || visible;
     }
 
     private void HandleKeyboardShortcuts(object? sender, KeyEventArgs e)
@@ -251,14 +317,29 @@ public sealed class MainForm : Form
             TogglePlayPause();
             e.Handled = true;
         }
+        else if (e.KeyCode == Keys.K)
+        {
+            TogglePlayPause();
+            e.Handled = true;
+        }
         else if (e.KeyCode == Keys.Right)
         {
             SeekRelative(5000);
             e.Handled = true;
         }
+        else if (e.KeyCode == Keys.L)
+        {
+            SeekRelative(10000);
+            e.Handled = true;
+        }
         else if (e.KeyCode == Keys.Left)
         {
             SeekRelative(-5000);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.J)
+        {
+            SeekRelative(-10000);
             e.Handled = true;
         }
         else if (e.KeyCode == Keys.Home)
@@ -276,11 +357,67 @@ public sealed class MainForm : Form
             ToggleFullScreen();
             e.Handled = true;
         }
+        else if (e.KeyCode == Keys.F)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Escape && _isFullScreen)
+        {
+            ToggleFullScreen();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Up)
+        {
+            SetVolume(_player.Volume + 5);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Down)
+        {
+            SetVolume(_player.Volume - 5);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.M)
+        {
+            ToggleMute();
+            e.Handled = true;
+        }
         else if (e.Control && e.KeyCode == Keys.O)
         {
             OpenFileDialog();
             e.Handled = true;
         }
+
+        if (e.Handled)
+        {
+            HandleInteraction(PointToClient(MousePosition), force: true);
+        }
+    }
+
+    private void SetVolume(int volume)
+    {
+        var clamped = Math.Clamp(volume, 0, 125);
+        _player.Volume = clamped;
+        if (clamped > 0)
+        {
+            _lastVolumeBeforeMute = clamped;
+        }
+        UpdateStatus($"Volume: {clamped}%");
+    }
+
+    private void ToggleMute()
+    {
+        if (_player.Volume > 0)
+        {
+            _lastVolumeBeforeMute = _player.Volume;
+            _player.Volume = 0;
+            UpdateStatus("Mudo");
+            return;
+        }
+
+        var restoreVolume = _lastVolumeBeforeMute <= 0 ? 80 : _lastVolumeBeforeMute;
+        _player.Volume = restoreVolume;
+        UpdateStatus($"Volume: {restoreVolume}%");
     }
 
     private void UpdateTimeline()
@@ -308,6 +445,7 @@ public sealed class MainForm : Form
         if (disposing)
         {
             _uiTimer.Dispose();
+            _fullScreenControlsTimer.Dispose();
             _player.Dispose();
             _libVlc.Dispose();
         }
