@@ -11,6 +11,9 @@ public sealed class MainForm : Form
     private readonly TrackBar _timeline;
     private readonly Label _statusLabel;
     private readonly System.Windows.Forms.Timer _uiTimer;
+    private readonly System.Windows.Forms.Timer _fullScreenControlsTimer;
+    private readonly Control _topBar;
+    private readonly Control _bottomBar;
 
     private string? _currentMediaPath;
     private bool _isDraggingTimeline;
@@ -39,12 +42,12 @@ public sealed class MainForm : Form
             BackColor = Color.Black
         };
 
-        var topBar = BuildTopBar();
-        var bottomBar = BuildBottomBar();
+        _topBar = BuildTopBar();
+        _bottomBar = BuildBottomBar();
 
         Controls.Add(_videoView);
-        Controls.Add(bottomBar);
-        Controls.Add(topBar);
+        Controls.Add(_bottomBar);
+        Controls.Add(_topBar);
 
         _statusLabel = new Label
         {
@@ -56,7 +59,7 @@ public sealed class MainForm : Form
             Text = "Nenhum vídeo aberto"
         };
 
-        _timeline = (TrackBar)bottomBar.Controls[0];
+        _timeline = (TrackBar)_bottomBar.Controls[0];
         Controls.Add(_statusLabel);
         _statusLabel.BringToFront();
 
@@ -68,8 +71,25 @@ public sealed class MainForm : Form
         _uiTimer.Tick += (_, _) => UpdateTimeline();
         _uiTimer.Start();
 
+        _fullScreenControlsTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+        _fullScreenControlsTimer.Tick += (_, _) => HideControlsInFullScreen();
+
         FormClosing += (_, _) => PersistCurrentPlaybackPosition();
         KeyDown += HandleKeyboardShortcuts;
+        MouseMove += (_, _) => HandleInteraction();
+        _videoView.MouseMove += (_, _) => HandleInteraction();
+        _topBar.MouseMove += (_, _) => HandleInteraction();
+        _bottomBar.MouseMove += (_, _) => HandleInteraction();
+
+        foreach (Control control in _topBar.Controls)
+        {
+            control.MouseMove += (_, _) => HandleInteraction();
+        }
+
+        foreach (Control control in _bottomBar.Controls)
+        {
+            control.MouseMove += (_, _) => HandleInteraction();
+        }
 
         if (!string.IsNullOrWhiteSpace(launchMediaPath) && File.Exists(launchMediaPath))
         {
@@ -234,6 +254,8 @@ public sealed class MainForm : Form
             Bounds = _previousBounds;
             WindowState = FormWindowState.Normal;
             _isFullScreen = false;
+            SetControlsVisibility(true);
+            _fullScreenControlsTimer.Stop();
             return;
         }
 
@@ -242,6 +264,33 @@ public sealed class MainForm : Form
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         _isFullScreen = true;
+        ShowControlsTemporarily();
+    }
+
+    private void HandleInteraction()
+    {
+        if (!_isFullScreen) return;
+        ShowControlsTemporarily();
+    }
+
+    private void ShowControlsTemporarily()
+    {
+        SetControlsVisibility(true);
+        _fullScreenControlsTimer.Stop();
+        _fullScreenControlsTimer.Start();
+    }
+
+    private void HideControlsInFullScreen()
+    {
+        _fullScreenControlsTimer.Stop();
+        if (!_isFullScreen) return;
+        SetControlsVisibility(false);
+    }
+
+    private void SetControlsVisibility(bool visible)
+    {
+        _topBar.Visible = visible;
+        _bottomBar.Visible = visible;
     }
 
     private void HandleKeyboardShortcuts(object? sender, KeyEventArgs e)
@@ -308,6 +357,7 @@ public sealed class MainForm : Form
         if (disposing)
         {
             _uiTimer.Dispose();
+            _fullScreenControlsTimer.Dispose();
             _player.Dispose();
             _libVlc.Dispose();
         }
