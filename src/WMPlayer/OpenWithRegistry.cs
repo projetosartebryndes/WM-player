@@ -13,6 +13,7 @@ public static class OpenWithRegistry
             var exePath = Environment.ProcessPath;
             if (string.IsNullOrWhiteSpace(exePath)) return;
 
+            CleanupLegacyRegistration();
             RegisterApplication(exePath);
             RegisterOpenWith(exePath);
         }
@@ -20,6 +21,11 @@ public static class OpenWithRegistry
         {
             // Ignora falhas de registro para não bloquear a reprodução.
         }
+    }
+
+    private static void CleanupLegacyRegistration()
+    {
+        Registry.CurrentUser.DeleteSubKeyTree(@"Software\\Classes\\Applications\\WMPlayer.exe", false);
     }
 
     private static void RegisterApplication(string exePath)
