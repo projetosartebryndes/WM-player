@@ -18,6 +18,7 @@ public sealed class MainForm : Form
     private string? _currentMediaPath;
     private bool _isDraggingTimeline;
     private bool _isFullScreen;
+    private bool _isCursorHidden;
     private int _lastVolumeBeforeMute = 80;
     private Point _lastMousePosition = Point.Empty;
     private DateTime _lastInteractionAt = DateTime.MinValue;
@@ -263,7 +264,7 @@ public sealed class MainForm : Form
             _isFullScreen = false;
             SetControlsVisibility(true);
             _fullScreenControlsTimer.Stop();
-            Cursor = Cursors.Default;
+            ShowMouseCursor();
             return;
         }
 
@@ -272,7 +273,7 @@ public sealed class MainForm : Form
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         _isFullScreen = true;
-        Cursor = Cursors.Default;
+        ShowMouseCursor();
         ShowControlsTemporarily();
     }
 
@@ -300,7 +301,7 @@ public sealed class MainForm : Form
         _fullScreenControlsTimer.Stop();
         if (!_isFullScreen) return;
         SetControlsVisibility(false);
-        Cursor = Cursors.None;
+        HideMouseCursor();
     }
 
     private void SetControlsVisibility(bool visible)
@@ -308,6 +309,25 @@ public sealed class MainForm : Form
         _topBar.Visible = visible;
         _bottomBar.Visible = visible;
         _statusLabel.Visible = !_isFullScreen || visible;
+
+        if (visible)
+        {
+            ShowMouseCursor();
+        }
+    }
+
+    private void HideMouseCursor()
+    {
+        if (_isCursorHidden) return;
+        Cursor.Hide();
+        _isCursorHidden = true;
+    }
+
+    private void ShowMouseCursor()
+    {
+        if (!_isCursorHidden) return;
+        Cursor.Show();
+        _isCursorHidden = false;
     }
 
     private void HandleKeyboardShortcuts(object? sender, KeyEventArgs e)
@@ -446,6 +466,7 @@ public sealed class MainForm : Form
         {
             _uiTimer.Dispose();
             _fullScreenControlsTimer.Dispose();
+            ShowMouseCursor();
             _player.Dispose();
             _libVlc.Dispose();
         }
