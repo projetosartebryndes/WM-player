@@ -1,7 +1,7 @@
 #define MyAppName "WM-player"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "WM-player"
-#define MyAppExeName "WMPlayer.exe"
+#define MyAppExeName "WMPlayerApp.exe"
 
 [Setup]
 AppId={{D6F286DA-86B8-4800-A858-22E8AA947F6A}
