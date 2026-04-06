@@ -59,7 +59,7 @@ public sealed class MainForm : Form
         {
             AutoSize = true,
             ForeColor = Color.White,
-            BackColor = Color.FromArgb(140, 0, 0, 0),
+            BackColor = Color.FromArgb(32, 32, 32),
             Padding = new Padding(8, 6, 8, 6),
             Location = new Point(10, 50),
             Text = "Nenhum vídeo aberto"
@@ -109,7 +109,7 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Top,
             Height = 50,
-            BackColor = Color.FromArgb(220, 22, 22, 22),
+            BackColor = Color.FromArgb(22, 22, 22),
             Padding = new Padding(8, 10, 8, 8),
             WrapContents = false,
             AutoScroll = true
@@ -132,7 +132,7 @@ public sealed class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             Height = 70,
-            BackColor = Color.FromArgb(220, 22, 22, 22),
+            BackColor = Color.FromArgb(22, 22, 22),
             Padding = new Padding(12)
         };
 
@@ -142,7 +142,7 @@ public sealed class MainForm : Form
             TickStyle = TickStyle.None,
             Minimum = 0,
             Maximum = 1000,
-            BackColor = Color.FromArgb(220, 22, 22, 22)
+            BackColor = Color.FromArgb(22, 22, 22)
         };
 
         timeline.MouseDown += (_, _) => _isDraggingTimeline = true;
