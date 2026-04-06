@@ -8,12 +8,12 @@
     <AssemblyName>WMPlayerApp</AssemblyName>
     <RootNamespace>WMPlayer</RootNamespace>
     <Platforms>x64</Platforms>
-    <ApplicationIcon>obj\generated\icon.ico</ApplicationIcon>
+    <ApplicationIcon Condition="Exists('$(MSBuildProjectDirectory)\obj\generated\icon.ico')">obj\generated\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <Target Name="GenerateAppIcon" BeforeTargets="BeforeBuild">
     <MakeDir Directories="$(MSBuildProjectDirectory)\obj\generated" />
-    <Exec Command="python &quot;$(MSBuildProjectDirectory)\..\..\scripts\generate_icon_ico.py&quot; &quot;$(MSBuildProjectDirectory)\obj\generated\icon.ico&quot;" />
+    <Exec Command="python &quot;$(MSBuildProjectDirectory)\..\..\scripts\generate_icon_ico.py&quot; &quot;$(MSBuildProjectDirectory)\obj\generated\icon.ico&quot;" ContinueOnError="WarnAndContinue" />
   </Target>
 
   <ItemGroup>
